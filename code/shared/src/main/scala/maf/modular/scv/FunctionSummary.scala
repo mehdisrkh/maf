@@ -211,7 +211,7 @@ trait FunctionSummaryAnalysis extends BaseScvBigStepSemantics with ScvIgnoreFres
                                       formula = conj(pc.formula, cleaned)
                                       vars = formula.variables
                                       // check if the updated PC is still feasible, if not we can already rule it out
-                                      isFeasible <- scvMonadInstance.unit(sat.feasible(formula, vars))
+                                      isFeasible <- scvMonadInstance.unit(sat.feasible(pc.formula, vars))
                                       // update if feasible
                                       _ <-
                                           if isFeasible then putPc(PathCondition(conj(pc.formula, cleaned)))

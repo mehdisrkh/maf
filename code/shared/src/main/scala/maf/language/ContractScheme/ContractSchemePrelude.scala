@@ -38,6 +38,9 @@ object ContractSchemePrelude extends BaseSchemePrelude:
         (and/c list? (flat (lambda (v) (iter v)))))""",
       ">=/c" -> """
       (define (>=/c v) (flat (lambda (x) (>= x v))))
+      """,
+      ">/c" -> """
+      (define (>/c v) (flat (lambda (x) (> x v))))
       """
     )
 

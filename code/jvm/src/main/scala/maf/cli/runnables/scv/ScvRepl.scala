@@ -14,8 +14,8 @@ object ScvRepl extends App:
         val exp = ContractSchemeParser.parse(program.nn)
         println(s"parsed expression $exp")
         //val analysis = SchemeAnalyses.scvModAnalysisWithRacketFeatures(exp)
-        //val analysis = SchemeAnalyses.scvModAnalysisRktFsR(exp)
-        val analysis = SchemeAnalyses.scvModAnalysisFunctionSummary(exp)
+        val analysis = SchemeAnalyses.scvModAnalysisRktFsR(exp)
+        //val analysis = SchemeAnalyses.scvModAnalysisFunctionSummary(exp)
         //val analysis = SchemeAnalyses.scvModAnalysisFunctionSummaryTopSort(exp)
         val (ellapsed, _) = maf.util.benchmarks.Timer.time { analysis.analyze() }
         println(analysis.summary.blames.values.flatten.toSet.size)

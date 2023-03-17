@@ -68,8 +68,8 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
         yield value
 
     extension (p: Prim)
-        def symApply(args: Symbolic*): Symbolic =
-            SchemeFuncall(SchemeVar(Identifier(p.name, Identity.none)), args.toList, Identity.none)
+        def symApply(id: Identity, args: Symbolic*): Symbolic =
+            SchemeFuncall(SchemeVar(Identifier(p.name, Identity.none)), args.toList, id)
 
     trait BaseIntraScvSemantics extends IntraAnalysis with IntraScvAnalysis with BaseIntraAnalysis:
         import DebugLogger.*
@@ -161,14 +161,14 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
                 .map(name => baseEnv.lookup(name).get -> SchemeVar(Identifier(name, Identity.none)))
                 .toMap
 
-        protected def symIfFeasible[X](symbolic: Option[Symbolic], prim: Prim)(cmp: => M[X]): M[X] =
+        protected def symIfFeasible[X](symbolic: Option[Symbolic], prim: Prim, id: Identity)(cmp: => M[X]): M[X] =
             symbolic match
                 // if we do not have symbolic information we simply execute cmp (overapproximating)
                 case None => cmp
                 case Some(sym) =>
                     for
                         // extend the path condition
-                        _ <- extendPc(prim.symApply(sym))
+                        _ <- extendPc(prim.symApply(id, sym))
                         // check if the path condition is feasible
                         pc <- getPc
                         vars <- getVars
@@ -191,10 +191,10 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
                           // synthesize symbolic call to the contract
                           val call = symCall(Some(SchemeVar(Identifier(op.name, Identity.none))), List(argv.symbolic))
                           nondet(
-                            symIfFeasible(call, `true?`) { /* no problem simply continue */
+                            symIfFeasible(call, `true?`, exp.idn) { /* no problem simply continue */
                                 unit(())
                             },
-                            symIfFeasible(call, `false?`) { /* contract is invalid */
+                            symIfFeasible(call, `false?`, exp.idn) { /* contract is invalid */
                                 doBlame(ContractValues.Blame(exp.idn, fexp.idn))
                             }
                           )
@@ -376,14 +376,15 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
             lookupCache(id).flatMap(sym => super.evalVariable(id).flatMap(tag(sym)))
 
         /** Executes the monadic action `m` if the given condition is feasible */
-        private def ifFeasible[X](prim: Prim, cnd: PostValue)(m: EvalM[X]): EvalM[X] =
+        private def ifFeasible[X](prim: Prim, cnd: PostValue, id: Identity)(m: EvalM[X]): EvalM[X] =
             for
                 primResult <- applyPrimitive(prim, List(cnd.value))
                 oldPc <- getPc
+                _ = println(oldPc)
                 _ <- cnd.symbolic match
                     case None => unit(())
                     case Some(symbolic) =>
-                        extendPc(prim.symApply(symbolic))
+                        extendPc(prim.symApply(id, symbolic))
 
                 pc <- getPc
                 vars <- getVars
@@ -401,8 +402,8 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
             yield result
 
         private def symCond(prdValWithSym: PostValue, csq: SchemeExp, alt: SchemeExp): EvalM[Value] =
-            val truVal = ifFeasible(`true?`, prdValWithSym)(eval(csq))
-            val flsVal = ifFeasible(`false?`, prdValWithSym)(eval(alt))
+            val truVal = ifFeasible(`true?`, prdValWithSym, csq.idn)(eval(csq))
+            val flsVal = ifFeasible(`false?`, prdValWithSym, csq.idn)(eval(alt))
             nondet(truVal, flsVal)
 
         protected def evalCheck(checkExpr: ContractSchemeCheck): EvalM[Value] =
@@ -457,8 +458,8 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
                 // we split the join again here.
                 splitResult <- extract(
                   nondets(
-                    ifFeasible(`true?`, joinedResult) { unit(lattice.bool(true)) >>= tag(joinedResult.symbolic) },
-                    ifFeasible(`false?`, joinedResult) { unit(lattice.bool(false)) >>= tag(joinedResult.symbolic) }
+                    ifFeasible(`true?`, joinedResult, checkExpr.valueExpression.idn) { unit(lattice.bool(true)) >>= tag(joinedResult.symbolic) },
+                    ifFeasible(`false?`, joinedResult, checkExpr.valueExpression.idn) { unit(lattice.bool(false)) >>= tag(joinedResult.symbolic) }
                   )
                 )
                 //splitResult = joinedResult
@@ -554,10 +555,10 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
                   callFun(PostValue.noSymbolic(contract.contract), List(value))
                 )
                 pv = PostValue(resultSymbolic, result)
-                tru = ifFeasible(`true?`, pv) { unit(value.value).flatMap(value.symbolic.map(tag).getOrElse(unit)) }
+                tru = ifFeasible(`true?`, pv, monIdn) { unit(value.value).flatMap(value.symbolic.map(tag).getOrElse(unit)) }
                 fls =
                     if (!assumed) then
-                        ifFeasible(`false?`, pv) {
+                        ifFeasible(`false?`, pv, monIdn) {
                             doBlame[Value](ContractValues.Blame(expr.idn, monIdn))
                         }
                     else void
@@ -667,15 +668,15 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
                 )
 
                 // we then refine booleans, such that they satisfy the path condition
-                refinedResult <- refineValue(result)
+                refinedResult <- refineValue(result, f.f.idn) // manier vinden om id terug te vinden
             yield refinedResult.value
 
-        private def refineValue(result: PostValue): EvalM[PostValue] =
+        private def refineValue(result: PostValue, id: Identity): EvalM[PostValue] =
             if lattice.isBoolean(result.value) && result.symbolic.isDefined then
                 extract(
                   nondets(
-                    ifFeasible(`true?`, result) { tag(result.symbolic)(lattice.bool(true)) },
-                    ifFeasible(`false?`, result) { tag(result.symbolic)(lattice.bool(false)) }, {
+                    ifFeasible(`true?`, result, id) { tag(result.symbolic)(lattice.bool(true)) },
+                    ifFeasible(`false?`, result, id) { tag(result.symbolic)(lattice.bool(false)) }, {
                         val otherValues = result.value // lattice.retractBool(result.value)
                         if lattice.isBottom(otherValues) then void else tag(result.symbolic)(otherValues)
                     }
