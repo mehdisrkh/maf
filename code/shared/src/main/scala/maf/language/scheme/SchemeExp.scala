@@ -284,7 +284,7 @@ case class SchemeFuncall(
         if args.isEmpty then s"($f)"
         else
             val a = args.mkString(" ")
-            s"($f $a)"
+            s"($f $a $idn)"
     def fv: Set[String] = f.fv ++ args.flatMap(_.fv).toSet
     override val height: Int = 1 + args.foldLeft(0)((mx, a) => mx.max(a.height).max(f.height))
     val label: Label = FNC
