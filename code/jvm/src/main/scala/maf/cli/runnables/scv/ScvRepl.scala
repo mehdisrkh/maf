@@ -20,6 +20,8 @@ object ScvRepl extends App:
         val (ellapsed, _) = maf.util.benchmarks.Timer.time { analysis.analyze() }
         println(analysis.summary.blames.values.flatten.toSet.size)
         println(analysis.summary.blames.values.flatten.toSet)
+        println(analysis.pathConditions)
+
         println(s"is finished ${analysis.finished} in ${ellapsed / (1000 * 1000)} ms")
         //println(analysis.mapStoreString())
         analysis.returnValue(analysis.initialComponent)
