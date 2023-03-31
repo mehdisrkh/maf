@@ -77,9 +77,8 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
 
 
 
-  var pathConditions: Map[SchemeExp, Formula] = Map()
-
-
+  var pathConditions: Map[SchemeExp, Formula] = Map()  //(Mehdi)
+  
   trait BaseIntraScvSemantics extends IntraAnalysis with IntraScvAnalysis with BaseIntraAnalysis:
 
     import DebugLogger.*
@@ -420,7 +419,7 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
       for
         primResult <- applyPrimitive(prim, List(cnd.value))
         oldPc <- getPc
-//        _ = println(oldPc)
+        _ = println(oldPc)
         _ <- cnd.symbolic match
           case None => unit(())
           case Some(symbolic) =>

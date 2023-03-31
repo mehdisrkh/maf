@@ -394,27 +394,21 @@ case class Disjunction(val elements: Set[Formula]) extends Formula:
  * @see
  * maf.language.symbolic.FormulaAux.impl
  */
-//case class Implication(antecedent: Formula, consequent: Formula) extends Formula: //(Mehdi)
-//  override def toString: String = s"(${antecedent.toString} => ${consequent.toString})"
-//
-//  def mapOptionM[M[_]: Monad](f: SchemeExp => M[Option[SchemeExp]]): M[Option[Formula]] =
-//    ???
-//
-//  /** Split the formula into its constituents if it is a conjunction */
-//  def splitConj: List[Formula] = List(this)
-//
-//  /** Split the formula into its constituents if it is a disjunction */
-//  def splitDisj: List[Formula] = List(this)
-//
-//  def ant_size: Int = antecedent.size
-//
-//  def ant_size: Int = consequent.size
-//
-//  def replace(changes: Map[SchemeExp, SchemeExp]): Formula =
-//    Implication(antecedent.replace(changes), consequent.replace(changes))
-//
-//  def ant_variables: List[String] = antecedent.variables
-//  def csq_variables: List[String] = consequent.variables
+case class Implication(antecedent: Formula, consequent: Formula) extends Formula: //(Mehdi)
+  override def toString: String = s"(${antecedent.toString} => ${consequent.toString})"
+
+  def mapOptionM[M[_]: Monad](f: SchemeExp => M[Option[SchemeExp]]): M[Option[Formula]] =
+    ???
+  
+  def ant_size: Int = antecedent.size
+
+  def csq_size: Int = consequent.size
+
+  def replace(changes: Map[SchemeExp, SchemeExp]): Formula =
+    Implication(antecedent.replace(changes), consequent.replace(changes))
+
+  def ant_variables: List[String] = antecedent.variables
+  def csq_variables: List[String] = consequent.variables
 
 
 /** Auxiliary functions */
@@ -459,20 +453,6 @@ object FormulaAux:
     else if asCleared.size == 1 then asCleared.head
     else if doFlat then flatten(asCleared.toSet)
     else Disjunction(asCleared.toSet)
-
-  /** Same as <code>conj</code> but constructs an implication instead */ //(Mehdi)
-//  def impl(a: Formula, b: Formula): Formula =
-//    impl(as.toList)
-//
-//  /** Same as <code>conj</code> but constructs an implciation instead */ //(Mehdi)
-//  def impl(as: List[Formula], doFlat: Boolean = true): Formula =
-//    val asCleared = as.filterNot {
-//      _ == EmptyFormula
-//    }
-//    if asCleared.size == 0 then EmptyFormula
-//    else if asCleared.size == 1 then asCleared.head
-//    else if doFlat then flatten(asCleared.toSet)
-//    else Implication(asCleared.toSet)
 
   /** Constructs an (isTrue? expr) expression */
   def isTrue(expr: SchemeExp): SchemeExp =

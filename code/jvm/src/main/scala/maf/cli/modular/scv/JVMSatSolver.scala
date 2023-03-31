@@ -244,9 +244,10 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
             translateAssertion(assertion)
         case Conjunction(formulas)       => s"(and ${formulas.map(translate(vars)).mkString(" ")})"
         case Disjunction(formulas)       => s"(or ${formulas.map(translate(vars)).mkString(" ")})"
+        case Imlplication(antecedent, consequent) => s"(=> ${translate(antecedent)} ${translate(consequent)}" // (Mehdi)
         case Assertion(_) | EmptyFormula => "true"
 
-  //case Imlplication(formulas)      => s"(=> ${translate(a)} ${translate(b)}" (Mehdi)
+  //case Imlplication(antecedent, consequent)      => s"(=> ${translate(antecedent)} ${translate(consequent)}"  //(Mehdi)
 
     def translateAssertion(e: SchemeExp): String = e match
         case SchemeVar(identifier)       => translateIdentifier(identifier)
