@@ -410,6 +410,16 @@ case class Implication(antecedent: Formula, consequent: Formula) extends Formula
   def ant_variables: List[String] = antecedent.variables
   def csq_variables: List[String] = consequent.variables
 
+  def elements: Set[maf.language.symbolic.Formula] = ???
+
+  def size: Int = ant_size + csq_size
+
+  def splitConj: List[maf.language.symbolic.Formula] = List(this)
+
+  def splitDisj: List[maf.language.symbolic.Formula] = ???
+
+  def variables: List[String] = ant_variables ++ csq_variables
+
 
 /** Auxiliary functions */
 object FormulaAux:
