@@ -110,7 +110,9 @@ object SchemeExp:
     given Show[SchemeExp] with
         def show(v: SchemeExp): String = v.toString
 /*
-    case SchemeLambda(name, args, body, ann, idn) =>
+    ble(name, value, idn) =>
+    case SchemeDefineFunction(name, args, body, idn) =>
+    case SchemeDefineVarAcase SchemeLambda(name, args, body, ann, idn) =>
     case SchemeVarArgLambda(name, args, vararg, body, ann, idn) =>
     case SchemeFuncall(f, args, idn) =>
     case SchemeIf(cond, cons, alt, idn) =>
@@ -120,9 +122,7 @@ object SchemeExp:
     case SchemeSet(variable, value, idn) =>
     case SchemeSetLex(variable, lexAddr, value, idn) =>
     case SchemeBegin(exps, idn) =>
-    case SchemeDefineVariable(name, value, idn) =>
-    case SchemeDefineFunction(name, args, body, idn) =>
-    case SchemeDefineVarArgFunction(name, args, vararg, body, idn) =>
+    case SchemeDefineVariargFunction(name, args, vararg, body, idn) =>
     case SchemeVar(id) =>
     case SchemeVarLex(id, lexAdr) =>
     case SchemeValue(value, idn) =>
