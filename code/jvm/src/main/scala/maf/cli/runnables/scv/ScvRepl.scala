@@ -3,10 +3,12 @@ package maf.cli.runnables.scv
 import maf.util.benchmarks.Table
 import maf.cli.experiments.SchemeAnalyses
 import maf.cli.modular.scv.JVMSatSolver
+import maf.core.{Identifier, NoCodeIdentity}
 
 import scala.io.StdIn.readLine
 import maf.language.ContractScheme.*
-import maf.language.scheme.{ContractSchemeContractOut, SchemeAnd, SchemeAssert, SchemeBegin, SchemeDefineFunction, SchemeDefineVariable, SchemeExp, SchemeFuncall, SchemeIf, SchemeLambda, SchemeLet, SchemeOr, SchemeSet}
+import maf.language.scheme.{ContractSchemeCheck, ContractSchemeContractOut, ContractSchemeDefineContract, ContractSchemeDepContract, ContractSchemeFlatContract, ContractSchemeMon, ContractSchemeProvide, SchemeAnd, SchemeAssert, SchemeBegin, SchemeDefineFunction, SchemeDefineVariable, SchemeExp, SchemeFuncall, SchemeIf, SchemeLambda, SchemeLet, SchemeOr, SchemeSet, SchemeValue, SchemeVar}
+import maf.language.sexp.Value
 import maf.language.symbolic.{Conjunction, Formula, Implication}
 import maf.util.benchmarks.Timeout
 import maf.modular.scheme.modf.SchemeModFComponent
@@ -60,6 +62,32 @@ object ScvRepl extends App:
       analysis.pathConditions = analysis.pathConditions + (schemeExp -> currentFormula)
     }
 
+      for ((schemeExp, formula) <- analysis.pathConditions) {
+          // Split the formula into its conjunctive components
+          val conjuncts = formula.splitConj
+
+          toDelete match {
+              case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
+                  val filteredConjuncts = conjuncts.map {
+                      case c if c == SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
+                      //remove SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) from toDelete
+                          toDelete = toDelete.filterNot(_ == c)
+                      case c => c // if the conjunct doesn't match the condition, just return it as is
+                  }
+              case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
+                  val filteredConjuncts = conjuncts.map {
+                      case c if c == SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
+                      //remove SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) from toDelete
+                          toDelete = toDelete.filterNot(_ == c)
+                      case c => c // if the conjunct doesn't match the condition, just return it as is
+                  }
+          }
+
+      }
+
+
+
+
       // remove all assertions to immediately have the schemeExp's
       toDelete = toDelete.map {
           case assertion(exp) => exp
@@ -69,9 +97,9 @@ object ScvRepl extends App:
       //create separate lists for conditions that are true and false
 
       //Ik denk dat ik "_" moet invullen als het niet uitmaakt wat er daar staat?
-      val trueConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("true?", idn)), _, _))
+      val trueConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("true?", idn)), _, _));
 
-      val falseConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("false?", idn)), _, _)))
+      val falseConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("false?", idn)), _, _));
 
       //for each 'trueCond' in trueConditions, find a false condition in falseConditions with the same tail
       //and make a pair out of it
@@ -147,18 +175,15 @@ object ScvRepl extends App:
                 case SchemeFuncall(f, args, idn) =>
                     //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
                     //want ik hoef eigenlijk niet te weten wat de conditie is
-                    f match {
-                        case SchemeVar(Identifier("true?", idn)) =>
-                            toDelete match{
-                                //SchemeValue(SexpValue...
-                                case SchemeFuncall(SchemeVar(identifier("true?", idn)), _, idn)) =>
-                                    SchemeFuncall(SchemeVar(identifier("true?", idn)),SchemeValue(Value.Boolean(true), NoCodeIdentity),idn)
+                    toDelete match {
+                        case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
+                          if (idn == idn2) {
+                            if (bool == "true?") {
+                              SchemeFuncall (SchemeVar (Identifier ("true?", idn1) ), SchemeValue(Value.Boolean (true), NoCodeIdentity), idn2);
+                            } else if (bool == "false?") {
+                              SchemeFuncall (SchemeVar (Identifier ("false?", idn1) ), SchemeValue(Value.Boolean (false), NoCodeIdentity), idn2);
                             }
-                        case SchemeVar(Identifier("false?", idn)) =>
-                            toDelete match {
-                                case SchemeFuncall(SchemeVar(identifier("false?", idn)), _, idn)) =>
-                                    SchemeFuncall(SchemeVar (identifier ("false?", idn) ),SchemeValue(Value.Boolean(false), NoCodeIdentity), idn)
-                            }
+                          }
                     }
 
                 case ContractSchemeContractOut(name, contract, idn) =>
@@ -187,13 +212,6 @@ object ScvRepl extends App:
                     val newContract = deleteFromExp(contract, toDelete)
                     val newValueExpression = deleteFromExp(valueExpression, toDelete)
                     ContractSchemeCheck(newContract, newValueExpression, idn)
-
-                case ContractSchemeProvide(outs, idn) =>
-                    val newOuts = outs.map { out =>
-                        val newOutExpression = deleteFromExp(out.expression, toDelete)
-                        ContractSchemeProvideOut(newOutExpression, out.provides)
-                    }
-                    ContractSchemeProvide(newOuts, idn)
 
                 case _ => exp
             }
