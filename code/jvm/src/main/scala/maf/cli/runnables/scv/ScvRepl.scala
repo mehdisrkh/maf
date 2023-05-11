@@ -9,7 +9,7 @@ import scala.io.StdIn.readLine
 import maf.language.ContractScheme.*
 import maf.language.scheme.{ContractSchemeCheck, ContractSchemeContractOut, ContractSchemeDefineContract, ContractSchemeDepContract, ContractSchemeFlatContract, ContractSchemeMon, ContractSchemeProvide, SchemeAnd, SchemeAssert, SchemeBegin, SchemeDefineFunction, SchemeDefineVariable, SchemeExp, SchemeFuncall, SchemeIf, SchemeLambda, SchemeLet, SchemeOr, SchemeSet, SchemeValue, SchemeVar}
 import maf.language.sexp.Value
-import maf.language.symbolic.{Conjunction, Formula, Implication}
+import maf.language.symbolic.{Assertion, Conjunction, Formula, Implication}
 import maf.util.benchmarks.Timeout
 import maf.modular.scheme.modf.SchemeModFComponent
 import maf.modular.scheme.SchemeConstantPropagationDomain
@@ -31,7 +31,7 @@ object ScvRepl extends App:
     }
 
     val solver = new JVMSatSolver[analysis.Value](analysis)(using analysis.lattice)
-    var toDelete = List[Formula]()
+    var toDelete1 = List[Formula]()
 
     // loop over all pathconditions in the map
     for ((schemeExp, formula) <- analysis.pathConditions) {
@@ -49,7 +49,7 @@ object ScvRepl extends App:
           case Sat(_) =>
             // if sat, the condition is redundant, delete it, add it to deleted list
             currentFormula = newFormula
-              toDelete = condition :: toDelete
+              toDelete1 = condition :: toDelete1
 
           case Unsat =>
           // if unsat, don't delete, check next condition
@@ -66,19 +66,19 @@ object ScvRepl extends App:
           // Split the formula into its conjunctive components
           val conjuncts = formula.splitConj
 
-          toDelete match {
+          toDelete1 match {
               case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
                   val filteredConjuncts = conjuncts.map {
                       case c if c == SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
                       //remove SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) from toDelete
-                          toDelete = toDelete.filterNot(_ == c)
+                          toDelete1 = toDelete1.filterNot(_ == c)
                       case c => c // if the conjunct doesn't match the condition, just return it as is
                   }
               case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
                   val filteredConjuncts = conjuncts.map {
                       case c if c == SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
                       //remove SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) from toDelete
-                          toDelete = toDelete.filterNot(_ == c)
+                          toDelete1 = toDelete1.filterNot(_ == c)
                       case c => c // if the conjunct doesn't match the condition, just return it as is
                   }
           }
@@ -86,29 +86,11 @@ object ScvRepl extends App:
       }
 
 
-
-
       // remove all assertions to immediately have the schemeExp's
-      toDelete = toDelete.map {
-          case assertion(exp) => exp
-          case other => other
+      val toDelete = toDelete1.map {
+          case Assertion(exp) => exp
+          case other => ???
       }
-      // check for pairs of conditions that negate each other
-      //create separate lists for conditions that are true and false
-
-      //Ik denk dat ik "_" moet invullen als het niet uitmaakt wat er daar staat?
-      val trueConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("true?", idn)), _, _));
-
-      val falseConditions = toDelete.filter(_ == SchemeFuncall(SchemeVar(identifier("false?", idn)), _, _));
-
-      //for each 'trueCond' in trueConditions, find a false condition in falseConditions with the same tail
-      //and make a pair out of it
-      val deletePairs = trueConditions.flatMap { trueCond =>
-          falseConditions.find(_.elements.tail == trueCond.elements.tail).map(falseCond => (trueCond, falseCond))
-      }
-
-      //delete those pairs from the toDelete list
-      toDelete --= (deletePairs.map(_._1) ++ deletePairs.map(_._2))
 
 
       println(analysis.summary.blames.values.flatten.toSet.size)
@@ -138,9 +120,11 @@ object ScvRepl extends App:
         case SchemeValue(value, idn) =>
      */
 
-    def deleteFromAST(ast: SchemeExp, toDelete: List[Formula]): SchemeExp = {
+      var newAST = deleteFromAST(exp, toDelete)
 
-        def deleteFromExp(exp: SchemeExp, toDelete: ListBuffer[Formula]): SchemeExp = {
+    def deleteFromAST(ast: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
+
+        def deleteFromExp(exp: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
             exp match {
 
                 case SchemeAssert(assertion, idn) =>
@@ -150,7 +134,8 @@ object ScvRepl extends App:
                     SchemeDefineVariable(name, deleteFromExp(value, toDelete), idn)
 
                 case SchemeLambda(name, args, body, ann, idn) =>
-                    SchemeLambda(name, args, deleteFromExp(body, toDelete), ann, idn)
+                    val newBody = body.map(deleteFromExp(_, toDelete))
+                    SchemeLambda(name, args, newBody, ann, idn)
 
                 case SchemeBegin(exps, idn) =>
                     val newExps = exps.map(deleteFromExp(_, toDelete))
@@ -163,13 +148,15 @@ object ScvRepl extends App:
                         deleteFromExp(alt, toDelete), idn)
 
                 case SchemeSet(variable, value, idn) =>
-                    SchemeSet(variable, deleteFromExp(value, toDelete))
+                    SchemeSet(variable, deleteFromExp(value, toDelete), idn)
 
                 //recursivly call 'deletefromexp' on the bindings to update the bindings
                 //then recursivly call on the body to also update the body
                 case SchemeLet(bindings, body, idn) =>
                     val newBindings = bindings.map { case (v, e) => (v, deleteFromExp(e, toDelete)) }
-                    SchemeLet(newBindings, deleteFromExp(body, toDelete), idn)
+                    val newBody = body.map(deleteFromExp(_, toDelete)) // body is een lijst van schemeexp
+                    SchemeLet(newBindings, newBody, idn)
+
 
                     // inner-case om  voor > , < , = te matchen
                 case SchemeFuncall(f, args, idn) =>
@@ -177,13 +164,13 @@ object ScvRepl extends App:
                     //want ik hoef eigenlijk niet te weten wat de conditie is
                     toDelete match {
                         case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
-                          if (idn == idn2) {
-                            if (bool == "true?") {
-                              SchemeFuncall (SchemeVar (Identifier ("true?", idn1) ), SchemeValue(Value.Boolean (true), NoCodeIdentity), idn2);
-                            } else if (bool == "false?") {
-                              SchemeFuncall (SchemeVar (Identifier ("false?", idn1) ), SchemeValue(Value.Boolean (false), NoCodeIdentity), idn2);
-                            }
-                          }
+                          if (idn == idn2) then
+                            if (bool == "true?") then
+                              SchemeValue(Value.Boolean (true), NoCodeIdentity);
+                            else if (bool == "false?") then
+                              SchemeValue(Value.Boolean (false), NoCodeIdentity);
+                            else ???
+                          else ???
                     }
 
                 case ContractSchemeContractOut(name, contract, idn) =>
@@ -216,8 +203,12 @@ object ScvRepl extends App:
                 case _ => exp
             }
             }
+        val newAST = deleteFromExp(ast, toDelete)
+        newAST
         }
 
+    //AST weer omvormen naar Scheme Code
+    newAST.prettyString()
 
 
     def repl(): Unit =
@@ -233,4 +224,4 @@ object ScvRepl extends App:
       repl()
 
 
-  repl()
+    repl()
