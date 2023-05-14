@@ -84,31 +84,20 @@ object ScvRepl extends App:
             analysis.pathConditions = analysis.pathConditions + (schemeExp -> currentFormula)
         }
 
+
+        //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
         for ((schemeExp, formula) <- analysis.pathConditions) {
             // Split the formula into its conjunctive components
             val conjuncts = formula.splitConj
 
             // TODO[Bram]: toDelete1 is een lijst geen Scheme expressie!
-            toDelete1 match {
-                /* TODO[Bram]: fix
+            toDelete1 = toDelete1.filterNot {
                 case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
-                    val filteredConjuncts = conjuncts.map {
-                        case c if c == SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
-                            //remove SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) from toDelete
-                            toDelete1 = toDelete1.filterNot(_ == c)
-                        case c => c // if the conjunct doesn't match the condition, just return it as is
-                    }
+                    conjuncts.contains(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
                 case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
-                    val filteredConjuncts = conjuncts.map {
-                        case c if c == SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) => // if the conjunct matches the condition, do something
-                            //remove SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) from toDelete
-                            toDelete1 = toDelete1.filterNot(_ == c)
-                        case c => c // if the conjunct doesn't match the condition, just return it as is
-                    }
-                 */
-                case _ => ???
+                    conjuncts.contains(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
+                case _ => false
             }
-
         }
 
         // remove all assertions to immediately have the schemeExp's
@@ -162,17 +151,22 @@ object ScvRepl extends App:
                     case SchemeFuncall(f, args, idn) =>
                         //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
                         //want ik hoef eigenlijk niet te weten wat de conditie is&
+                        var newArgs = args
                         // TODO[Bram]: toDelete is een lijst geen SchemeExp
-                        toDelete match {
-                            // TODO[Bram]: uncomment and fix
-                            // case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
-                            //     if (idn == idn2) then
-                            //         if (bool == "true?") then SchemeValue(Value.Boolean(true), NoCodeIdentity);
-                            //         else if (bool == "false?") then SchemeValue(Value.Boolean(false), NoCodeIdentity);
-                            //         else ???
-                            //     else ???
+                        for (cond <- toDelete) {
+//                             TODO[Bram]: uncomment and fix
+                            cond match {
+                             case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
+                                 if (idn == idn2) then
+                                     if (bool == "true?") then newArgs = List(SchemeValue(Value.Boolean(true), NoCodeIdentity))
+                                     else if (bool == "false?") then newArgs = List(SchemeValue(Value.Boolean(false), NoCodeIdentity))
+                                     else ???
+                                 else ???
                             case _ => ???
+                            }
                         }
+                        SchemeFuncall(f, newArgs, idn)
+
 
                     case ContractSchemeContractOut(name, contract, idn) =>
                         ContractSchemeContractOut(name, deleteFromExp(contract, toDelete), idn)
@@ -244,4 +238,4 @@ object ScvRepl extends App:
                 println(analyse(program))
                 repl()
 
-            repl()
+        repl()
