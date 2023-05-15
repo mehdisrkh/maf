@@ -84,7 +84,6 @@ object ScvRepl extends App:
             analysis.pathConditions = analysis.pathConditions + (schemeExp -> currentFormula)
         }
 
-
         //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
         for ((schemeExp, formula) <- analysis.pathConditions) {
             // Split the formula into its conjunctive components
@@ -156,17 +155,16 @@ object ScvRepl extends App:
                         for (cond <- toDelete) {
 //                             TODO[Bram]: uncomment and fix
                             cond match {
-                             case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
-                                 if (idn == idn2) then
-                                     if (bool == "true?") then newArgs = List(SchemeValue(Value.Boolean(true), NoCodeIdentity))
-                                     else if (bool == "false?") then newArgs = List(SchemeValue(Value.Boolean(false), NoCodeIdentity))
-                                     else ???
-                                 else ???
-                            case _ => ???
+                                case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
+                                    if (idn == idn2) then
+                                        if (bool == "true?") then newArgs = List(SchemeValue(Value.Boolean(true), NoCodeIdentity))
+                                        else if (bool == "false?") then newArgs = List(SchemeValue(Value.Boolean(false), NoCodeIdentity))
+                                        else ???
+                                    else ???
+                                case _ => ???
                             }
                         }
                         SchemeFuncall(f, newArgs, idn)
-
 
                     case ContractSchemeContractOut(name, contract, idn) =>
                         ContractSchemeContractOut(name, deleteFromExp(contract, toDelete), idn)
@@ -226,16 +224,16 @@ object ScvRepl extends App:
         //AST weer omvormen naar Scheme Code
         newAST.prettyString()
 
-        def repl(): Unit =
-            print(">")
-            val program = readLine().trim().nn
-            if program.startsWith(":f") then
-                val args = program.replace(":f", "").nn.trim().nn
-                val filename = args
-                println(analyse(Reader.loadFile(filename)))
-                repl()
-            else if program != ":q" then
-                println(analyse(program))
-                repl()
+    def repl(): Unit =
+        print(">")
+        val program = readLine().trim().nn
+        if program.startsWith(":f") then
+            val args = program.replace(":f", "").nn.trim().nn
+            val filename = args
+            println(analyse(Reader.loadFile(filename)))
+            repl()
+        else if program != ":q" then
+            println(analyse(program))
+            repl()
 
-        repl()
+    repl()
