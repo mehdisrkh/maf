@@ -242,9 +242,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
     def translate(vars: List[String])(e: Formula): String = e match
         case Assertion(assertion) if Symbolic.isValid(vars)(assertion) =>
             translateAssertion(assertion)
-        case Conjunction(formulas)       => s"(and ${formulas.map(translate(vars)).mkString(" ")})"
+        case Conjunction(formulas)       => if formulas.size == 0 then "" else s"(and ${formulas.map(translate(vars)).mkString(" ")})"
         case Disjunction(formulas)       => s"(or ${formulas.map(translate(vars)).mkString(" ")})"
-        case Implication(antecedent, consequent) => s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}" // (Mehdi)
+        case Implication(antecedent, consequent) => s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})" // (Mehdi)
         case Assertion(_) | EmptyFormula => "true"
 
   //case Implication(antecedent, consequent)      => s"(=> ${translate(antecedent)} ${translate(consequent)}"  //(Mehdi)
@@ -288,7 +288,6 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
             val translated = e.splitConj.filterNot { _ == EmptyFormula }.map(translate(vars)).map(assertion => s"(assert $assertion)").mkString("\n")
             val varsDeclarations = vars.map(v => s"(declare-const $v V)").mkString("\n")
             val program = varsDeclarations ++ translated
-
             reset()
             val script: Script = Script(parseStringToScript(program).commands)
             val answer = reporter.time(reporter.Z3InterpreterTime) { isSat(script) }
