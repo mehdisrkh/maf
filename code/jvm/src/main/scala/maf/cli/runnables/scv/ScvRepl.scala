@@ -25,6 +25,7 @@ import maf.language.scheme.{
     SchemeIf,
     SchemeLambda,
     SchemeLet,
+    SchemeLetrec,
     SchemeOr,
     SchemeSet,
     SchemeValue,
@@ -84,12 +85,14 @@ object ScvRepl extends App:
             analysis.pathConditions = analysis.pathConditions + (schemeExp -> currentFormula)
         }
 
+        println("This is the toDelete before filtering: " + toDelete1)
+        //remove duplicates
+        toDelete1 = toDelete1.distinct
+
         //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
         for ((schemeExp, formula) <- analysis.pathConditions) {
             // Split the formula into its conjunctive components
             val conjuncts = formula.splitConj
-
-            // TODO[Bram]: toDelete1 is een lijst geen Scheme expressie!
             toDelete1 = toDelete1.filterNot {
                 case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
                     conjuncts.contains(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
@@ -99,11 +102,14 @@ object ScvRepl extends App:
             }
         }
 
+
         // remove all assertions to immediately have the schemeExp's
         val toDelete = toDelete1.map {
             case Assertion(exp) => exp
             case other          => ???
         }
+
+        println("This is the toDelete: " + toDelete)
 
         println(analysis.summary.blames.values.flatten.toSet.size)
         println(analysis.summary.blames.values.flatten.toSet)
@@ -114,6 +120,9 @@ object ScvRepl extends App:
         analysis.returnValue(analysis.initialComponent)
 
         def deleteFromAST(ast: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
+
+//            println("This is the old AST")
+//            println(ast.prettyString())
 
             def deleteFromExp(exp: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
                 exp match {
@@ -146,25 +155,29 @@ object ScvRepl extends App:
                         val newBody = body.map(deleteFromExp(_, toDelete)) // body is een lijst van schemeexp
                         SchemeLet(newBindings, newBody, idn)
 
+                    case SchemeLetrec(bindings, body, idn) =>
+                        val newBindings = bindings.map { case (v, e) => (v, deleteFromExp(e, toDelete)) }
+                        val newBody = body.map(deleteFromExp(_, toDelete))
+                        SchemeLetrec(newBindings, newBody, idn)
+
                     // inner-case om  voor > , < , = te matchen
                     case SchemeFuncall(f, args, idn) =>
                         //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
                         //want ik hoef eigenlijk niet te weten wat de conditie is&
-                        var newArgs = args
-                        // TODO[Bram]: toDelete is een lijst geen SchemeExp
+                        var newCond = args.head
                         for (cond <- toDelete) {
-//                             TODO[Bram]: uncomment and fix
                             cond match {
                                 case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
                                     if (idn == idn2) then
-                                        if (bool == "true?") then newArgs = List(SchemeValue(Value.Boolean(true), NoCodeIdentity))
-                                        else if (bool == "false?") then newArgs = List(SchemeValue(Value.Boolean(false), NoCodeIdentity))
-                                        else ???
-                                    else ???
+                                        if (bool == "true?") then newCond = SchemeValue(Value.Boolean(true), NoCodeIdentity)
+                                        else if (bool == "false?") then newCond = SchemeValue(Value.Boolean(false), NoCodeIdentity)
+                                        else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
+                                    else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
                                 case _ => ???
                             }
                         }
-                        SchemeFuncall(f, newArgs, idn)
+                        val res: SchemeExp = if (newCond != args.head) then newCond else SchemeFuncall(f, args, idn)
+                        res
 
                     case ContractSchemeContractOut(name, contract, idn) =>
                         ContractSchemeContractOut(name, deleteFromExp(contract, toDelete), idn)
@@ -196,7 +209,10 @@ object ScvRepl extends App:
                     case _ => exp
                 }
             }
+            println("This is the old AST : \n")
+            print(ast.prettyString() + "\n")
             val newAST = deleteFromExp(ast, toDelete)
+            println("Old Ast equal to new AST?: " + ast.eql(newAST))
             newAST
         }
 
@@ -219,9 +235,10 @@ object ScvRepl extends App:
         case SchemeValue(value, idn) =>
          */
 
-        var newAST = deleteFromAST(exp, toDelete)
+        val newAST = deleteFromAST(exp, toDelete)
 
         //AST weer omvormen naar Scheme Code
+        println("This is the new AST: \n")
         newAST.prettyString()
 
     def repl(): Unit =
