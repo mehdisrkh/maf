@@ -57,57 +57,68 @@ object ScvRepl extends App:
         var toDelete1 = List[Formula]()
 
         // loop over all pathconditions in the map
-        for ((schemeExp, formula) <- analysis.pathConditions) {
-            var currentFormula = formula
+        for ((schemeExp, formulas) <- analysis.pathConditions) {
+            for (formula <- formulas) {
+                // loop over all conditions in the formula
+                val currentFormula = formula
+//                println("this is the formula: " + currentFormula)
+                for (condition <- formula.splitConj) {
+//                    println("this is splitdisj: " + formula.splitConj)
+                    val newFormula = Conjunction(formula.elements - condition)
 
-            // loop over all conditions in the formula
-            for (condition <- formula.splitConj) {
-                val newFormula = Conjunction(formula.elements - condition)
+                    //create an implication of the newFormula and the original formula
+                    val implication = Implication(newFormula, currentFormula)
 
-                //create an implication of the newFormula and the original formula
-                val implication = Implication(newFormula, currentFormula)
+                    // Does the new formula imply the original formula?
+                    solver.sat(implication, implication.variables) match {
+                        case Sat(_) =>
+                            // if sat, the condition is redundant, delete it, add it to deleted list
+                            //                        currentFormula = newFormula
+                            println("this formula: " + newFormula + "  impliceert: " + currentFormula)
+                            toDelete1 = condition :: toDelete1
 
-                // Does the new formula imply the original formula?
-                solver.sat(implication, implication.variables) match {
-                    case Sat(_) =>
-                        // if sat, the condition is redundant, delete it, add it to deleted list
-                        currentFormula = newFormula
-                        toDelete1 = condition :: toDelete1
-
-                    case Unsat =>
-                    // if unsat, don't delete, check next condition
-                    case Unknown =>
-                    // if unknown, to play it 'safe' same as unsat
+                        case Unsat =>
+                        // if unsat, don't delete, check next condition
+                        case Unknown =>
+                        // if unknown, to play it 'safe' same as unsat
+                    }
+                    // replace the formula in the map
+                    val updatedFormulas = formulas - currentFormula + newFormula
+                    analysis.pathConditions = analysis.pathConditions + (schemeExp -> updatedFormulas)
                 }
             }
-
-            // replace the formula in the map
-            analysis.pathConditions = analysis.pathConditions + (schemeExp -> currentFormula)
         }
 
-        println("This is the toDelete before filtering: " + toDelete1)
         //remove duplicates
         toDelete1 = toDelete1.distinct
+        println("This is the toDelete before filtering: " + toDelete1)
+
+        // remove all assertions to immediately have the schemeExp's
+        var toDelete = toDelete1.map {
+            case Assertion(exp) => exp
+            case other => ???
+        }
 
         //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
-        for ((schemeExp, formula) <- analysis.pathConditions) {
-            // Split the formula into its conjunctive components
-            val conjuncts = formula.splitConj
-            toDelete1 = toDelete1.filterNot {
-                case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
-                    conjuncts.contains(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
-                case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
-                    conjuncts.contains(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
-                case _ => false
+        for ((schemeExp, formulas) <- analysis.pathConditions) {
+            for (formula <- formulas) {
+                val conjuncts = formula.splitConj
+//                println("this is formula: " + conjuncts)
+                //            println("This is the pc: " + conjuncts + " for schemeEXP: " + schemeExp)
+                toDelete = toDelete.filterNot {
+                    case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
+//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
+//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
+                        conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)))
+                    case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
+//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
+//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
+                        conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2)))
+                    case _ => false
+                }
             }
         }
 
-
-        // remove all assertions to immediately have the schemeExp's
-        val toDelete = toDelete1.map {
-            case Assertion(exp) => exp
-            case other          => ???
-        }
 
         println("This is the toDelete: " + toDelete)
 
@@ -120,9 +131,6 @@ object ScvRepl extends App:
         analysis.returnValue(analysis.initialComponent)
 
         def deleteFromAST(ast: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
-
-//            println("This is the old AST")
-//            println(ast.prettyString())
 
             def deleteFromExp(exp: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
                 exp match {

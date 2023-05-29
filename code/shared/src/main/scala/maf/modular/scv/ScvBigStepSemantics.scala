@@ -77,7 +77,7 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
 
 
 
-  var pathConditions: Map[SchemeExp, Formula] = Map()  //(Mehdi)
+  var pathConditions: Map[SchemeExp, Set[Formula]] = Map()  //(Mehdi)
   
   trait BaseIntraScvSemantics extends IntraAnalysis with IntraScvAnalysis with BaseIntraAnalysis:
 
@@ -406,7 +406,15 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
           // catch-all, dispatching to the default Scheme semantics
           case _ => super.eval(exp)
         pc <- getPc
-        _ = { pathConditions = pathConditions + (exp -> pc.formula)}
+        _ = {
+//            val existingFormula = pathConditions.getOrElse(exp, pc.formula)
+//            val newFormula = Disjunction(Set(existingFormula, pc.formula))
+            val existingFormulas = pathConditions.getOrElse(exp, Set.empty)
+            val newFormulas = existingFormulas ++ Set(pc.formula)
+//            println("this is newformula: " + newFormula)
+            pathConditions = pathConditions + (exp -> newFormulas)
+        }
+//        _ = println("this is exp: " + exp + "          this is formula: " +  pc.formula)
       yield result
 
 
@@ -419,7 +427,7 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
       for
         primResult <- applyPrimitive(prim, List(cnd.value))
         oldPc <- getPc
-        _ = println(oldPc)
+//        _ = println(oldPc) // (Mehdi)
         _ <- cnd.symbolic match
           case None => unit(())
           case Some(symbolic) =>
