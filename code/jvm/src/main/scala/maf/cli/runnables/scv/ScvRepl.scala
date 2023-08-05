@@ -33,18 +33,24 @@ object ScvRepl extends App:
         val solver = new JVMSatSolver[analysis.Value](analysis)(using analysis.lattice)
         var toDelete1: Map[SchemeExp, List[Formula]] = Map()
 
+        println("this is the  PC: ")
+        println(analysis.pathConditions)
+
         // loop over all pathconditions in the map
         for ((schemeExp, formulas) <- analysis.pathConditions) {
             var toDeleteCond: List[Formula] = List.empty
 //            println(" for schemeEXP: " + schemeExp + "This is the pc: " + formulas)
             //loop over elke pathconditie van schemeExp
+            println("This is exp: " + schemeExp)
             for (formula <- formulas) {
-                val currentFormula = formula
-//                println("this is the formula: " + currentFormula)
+                var currentFormula = formula
+                println("this is the formula: " + currentFormula)
                 // loop over alle conditions in the formula
+//                println("this is formula: ")
+//                println(formula)
                 for (condition <- formula.splitConj) {
 //                    println("this is splitconj: " + formula.splitConj)
-                    val newFormula = Conjunction(formula.elements - condition)
+                    val newFormula = Conjunction(currentFormula.elements - condition)
 
                     //create an implication of the newFormula and the original formula
                     val implication = Implication(newFormula, currentFormula)
@@ -53,8 +59,8 @@ object ScvRepl extends App:
                     solver.sat(implication, implication.variables) match {
                         case Sat(_) =>
                             // if sat, the condition is redundant, delete it, add it to deleted list
-                            //                        currentFormula = newFormula
-//                            println("this formula: " + newFormula + "  impliceert: " + currentFormula)
+                            println("this formula: " + newFormula + "  impliceert: " + currentFormula)
+                            currentFormula = newFormula
                             toDeleteCond = condition :: toDeleteCond
 
                         case Unsat =>
@@ -67,6 +73,7 @@ object ScvRepl extends App:
 //                    analysis.pathConditions = analysis.pathConditions + (schemeExp -> updatedFormulas)
                 }
             }
+            println("This is todeleteCond: " + toDeleteCond)
             toDelete1 = toDelete1.updatedWith(schemeExp) {
                 case Some(existingValue) => Some(existingValue ::: toDeleteCond)
                 case None => Some(toDeleteCond)

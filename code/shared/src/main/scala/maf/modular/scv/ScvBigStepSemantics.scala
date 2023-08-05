@@ -410,8 +410,6 @@ trait BaseScvBigStepSemantics extends ScvModAnalysis with ScvBaseSemantics with 
 //            val existingFormula = pathConditions.getOrElse(exp, pc.formula)
 //            val newFormula = Disjunction(Set(existingFormula, pc.formula))
             val existingFormulas = pathConditions.getOrElse(exp, Set.empty)
-            if (existingFormulas == Set.empty) then
-                println("this is the exp:  " + exp)
             val newFormulas = existingFormulas ++ Set(pc.formula)
 //            println("this is newformula: " + newFormula)
             pathConditions = pathConditions + (exp -> newFormulas)
