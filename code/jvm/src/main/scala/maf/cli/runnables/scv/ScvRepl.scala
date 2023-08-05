@@ -7,30 +7,7 @@ import maf.core.{Identifier, NoCodeIdentity}
 
 import scala.io.StdIn.readLine
 import maf.language.ContractScheme.*
-import maf.language.scheme.{
-    ContractSchemeCheck,
-    ContractSchemeContractOut,
-    ContractSchemeDefineContract,
-    ContractSchemeDepContract,
-    ContractSchemeFlatContract,
-    ContractSchemeMon,
-    ContractSchemeProvide,
-    SchemeAnd,
-    SchemeAssert,
-    SchemeBegin,
-    SchemeDefineFunction,
-    SchemeDefineVariable,
-    SchemeExp,
-    SchemeFuncall,
-    SchemeIf,
-    SchemeLambda,
-    SchemeLet,
-    SchemeLetrec,
-    SchemeOr,
-    SchemeSet,
-    SchemeValue,
-    SchemeVar
-}
+import maf.language.scheme.{ContractSchemeCheck, ContractSchemeContractOut, ContractSchemeDefineContract, ContractSchemeDepContract, ContractSchemeFlatContract, ContractSchemeMon, ContractSchemeProvide, SchemeAnd, SchemeAssert, SchemeBegin, SchemeDefineFunction, SchemeDefineVariable, SchemeExp, SchemeFuncall, SchemeIf, SchemeLambda, SchemeLet, SchemeLetStar, SchemeLetrec, SchemeOr, SchemeSet, SchemeValue, SchemeVar}
 import maf.language.sexp.Value
 import maf.language.symbolic.{Assertion, Conjunction, Formula, Implication}
 import maf.util.benchmarks.Timeout
@@ -54,16 +31,19 @@ object ScvRepl extends App:
         }
 
         val solver = new JVMSatSolver[analysis.Value](analysis)(using analysis.lattice)
-        var toDelete1 = List[Formula]()
+        var toDelete1: Map[SchemeExp, List[Formula]] = Map()
 
         // loop over all pathconditions in the map
         for ((schemeExp, formulas) <- analysis.pathConditions) {
+            var toDeleteCond: List[Formula] = List.empty
+//            println(" for schemeEXP: " + schemeExp + "This is the pc: " + formulas)
+            //loop over elke pathconditie van schemeExp
             for (formula <- formulas) {
-                // loop over all conditions in the formula
                 val currentFormula = formula
 //                println("this is the formula: " + currentFormula)
+                // loop over alle conditions in the formula
                 for (condition <- formula.splitConj) {
-//                    println("this is splitdisj: " + formula.splitConj)
+//                    println("this is splitconj: " + formula.splitConj)
                     val newFormula = Conjunction(formula.elements - condition)
 
                     //create an implication of the newFormula and the original formula
@@ -74,8 +54,8 @@ object ScvRepl extends App:
                         case Sat(_) =>
                             // if sat, the condition is redundant, delete it, add it to deleted list
                             //                        currentFormula = newFormula
-                            println("this formula: " + newFormula + "  impliceert: " + currentFormula)
-                            toDelete1 = condition :: toDelete1
+//                            println("this formula: " + newFormula + "  impliceert: " + currentFormula)
+                            toDeleteCond = condition :: toDeleteCond
 
                         case Unsat =>
                         // if unsat, don't delete, check next condition
@@ -83,44 +63,97 @@ object ScvRepl extends App:
                         // if unknown, to play it 'safe' same as unsat
                     }
                     // replace the formula in the map
-                    val updatedFormulas = formulas - currentFormula + newFormula
-                    analysis.pathConditions = analysis.pathConditions + (schemeExp -> updatedFormulas)
+//                    val updatedFormulas = formulas - currentFormula + newFormula
+//                    analysis.pathConditions = analysis.pathConditions + (schemeExp -> updatedFormulas)
                 }
+            }
+            toDelete1 = toDelete1.updatedWith(schemeExp) {
+                case Some(existingValue) => Some(existingValue ::: toDeleteCond)
+                case None => Some(toDeleteCond)
             }
         }
 
         //remove duplicates
-        toDelete1 = toDelete1.distinct
-        println("This is the toDelete before filtering: " + toDelete1)
+//        toDelete1 = toDelete1.distinct
+//        println("This is the toDelete before filtering: " + toDelete1)
 
         // remove all assertions to immediately have the schemeExp's
-        var toDelete = toDelete1.map {
-            case Assertion(exp) => exp
-            case other => ???
+        var toDelete  = toDelete1.map {
+            case (schemeExp, formulas) => schemeExp -> formulas.map {
+                case Assertion(exp) => exp
+                case other => ???
+            }
         }
+
 
         //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
         for ((schemeExp, formulas) <- analysis.pathConditions) {
             for (formula <- formulas) {
                 val conjuncts = formula.splitConj
-//                println("this is formula: " + conjuncts)
-                //            println("This is the pc: " + conjuncts + " for schemeEXP: " + schemeExp)
-                toDelete = toDelete.filterNot {
+                val conditionsToDelete = toDelete.getOrElse(schemeExp, List.empty)
+                //                println("this is formula: " + conjuncts)
+//                println(" for schemeEXP: " + schemeExp + "This is the pc: " + conjuncts )
+                toDelete = toDelete.updated(schemeExp, conditionsToDelete.filterNot {
                     case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
-//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
-//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
-                        conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)))
+                        //println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
+                        //println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)))
+                        conjuncts.exists {
+                            case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
+//                                println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
+//                                println(conjuncts.exists {
+//                                    case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
+//                                        idn2 == idn4
+//                                    case _ => false
+//                                })
+                                idn2 == idn4
+                            case _ => false
+                        }
                     case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
-//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
-//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
-                        conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2)))
+                        //println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
+                        //println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
+                        conjuncts.exists {
+                            case Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)) =>
+                                idn2 == idn4
+                            case _ => false
+                        }
                     case _ => false
-                }
+                })
             }
         }
 
+//        println("This is todelete: " + toDelete)
 
-        println("This is the toDelete: " + toDelete)
+
+//        var toDeleteFinal: List[SchemeExp] = List.empty
+//
+//        toDelete.foreach {
+//            case (schemeExp, conditions) =>
+//                var thisSchemeExp = schemeExp
+//                var deleteBool = true
+//                for (condition <- conditions) {
+//                    println("This is the condition: " + condition)
+//                    for ((schemeExp1, formulas) <- analysis.pathConditions) {
+//                        if schemeExp != schemeExp1 then
+////                            println(schemeExp1)
+////                            println(formulas)
+//                            for (formula <- formulas) {
+//                                println(formula.splitConj.contains(Assertion(condition)))
+//                                if formula.splitConj.contains(Assertion(condition)) then
+//                                    if (toDelete.getOrElse(schemeExp1, List.empty).contains(condition)) then
+//                                        deleteBool = deleteBool
+//                                    else{
+//                                        deleteBool = false
+//                                        println(thisSchemeExp)
+//                                    }
+//                            }
+//                    }
+//                    if deleteBool then
+//                        toDeleteFinal = condition :: toDeleteFinal
+//                }
+//        }
+//
+//
+//        println("This is the toDelete: " + toDeleteFinal.distinct)
 
         println(analysis.summary.blames.values.flatten.toSet.size)
         println(analysis.summary.blames.values.flatten.toSet)
@@ -130,9 +163,9 @@ object ScvRepl extends App:
         //println(analysis.mapStoreString())
         analysis.returnValue(analysis.initialComponent)
 
-        def deleteFromAST(ast: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
+        def deleteFromAST(ast: SchemeExp, toDelete: Map[SchemeExp, List[SchemeExp]]): SchemeExp = {
 
-            def deleteFromExp(exp: SchemeExp, toDelete: List[SchemeExp]): SchemeExp = {
+            def deleteFromExp(exp: SchemeExp, toDelete: Map[SchemeExp, List[SchemeExp]]): SchemeExp = {
                 exp match {
 
                     case SchemeAssert(assertion, idn) =>
@@ -163,6 +196,11 @@ object ScvRepl extends App:
                         val newBody = body.map(deleteFromExp(_, toDelete)) // body is een lijst van schemeexp
                         SchemeLet(newBindings, newBody, idn)
 
+                    case SchemeLetStar(bindings, body, idn) =>
+                        val newBindings = bindings.map { case (v, e) => (v, deleteFromExp(e, toDelete)) }
+                        val newBody = body.map(deleteFromExp(_, toDelete)) // body is een lijst van schemeexp
+                        SchemeLetStar(newBindings, newBody, idn)
+
                     case SchemeLetrec(bindings, body, idn) =>
                         val newBindings = bindings.map { case (v, e) => (v, deleteFromExp(e, toDelete)) }
                         val newBody = body.map(deleteFromExp(_, toDelete))
@@ -173,19 +211,48 @@ object ScvRepl extends App:
                         //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
                         //want ik hoef eigenlijk niet te weten wat de conditie is&
                         var newCond = args.head
-                        for (cond <- toDelete) {
-                            cond match {
-                                case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
-                                    if (idn == idn2) then
-                                        if (bool == "true?") then newCond = SchemeValue(Value.Boolean(true), NoCodeIdentity)
-                                        else if (bool == "false?") then newCond = SchemeValue(Value.Boolean(false), NoCodeIdentity)
-                                        else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
-                                    else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
-                                case _ => ???
-                            }
+                        for ((schemeExp, conditions) <- toDelete) {
+                            if idn == schemeExp.idn then
+//                                println(schemeExp)
+                                for (cond <- conditions) {
+                                    cond match {
+                                        case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
+//                                            println(idn)
+//                                            println(idn1)
+//                                            println(idn2)
+                                            if (idn == idn2) then
+                                                if (bool == "true?") then newCond = SchemeValue(Value.Boolean(true), NoCodeIdentity)
+                                                else if (bool == "false?") then newCond = SchemeValue(Value.Boolean(false), NoCodeIdentity)
+                                                else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
+                                            else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
+                                        case _ => ???
+                                    }
+                                }
                         }
                         val res: SchemeExp = if (newCond != args.head) then newCond else SchemeFuncall(f, args, idn)
                         res
+
+//                    case SchemeFuncall(f, args, idn) =>
+//                        //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
+//                        //want ik hoef eigenlijk niet te weten wat de conditie is&
+//                        var newCond = args.head
+//                        for (cond <- toDelete) {
+//                            cond match {
+//                                case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
+//                                    if (idn == idn2) then
+////                                        println("This is to be deleted: " + cond)
+////                                        println("This is the bool: " + bool)
+//                                        if (bool == "true?") then
+//                                            newCond = SchemeValue(Value.Boolean(true), NoCodeIdentity)
+////                                            println("This is te new one: " + newCond)
+//                                        else if (bool == "false?") then newCond = SchemeValue(Value.Boolean(false), NoCodeIdentity)
+//                                        else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
+//                                    else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
+//                                case _ => ???
+//                            }
+//                        }
+//                        val res: SchemeExp = if (newCond != args.head) then newCond else SchemeFuncall(f, args, idn)
+//                        res
 
                     case ContractSchemeContractOut(name, contract, idn) =>
                         ContractSchemeContractOut(name, deleteFromExp(contract, toDelete), idn)
@@ -217,10 +284,10 @@ object ScvRepl extends App:
                     case _ => exp
                 }
             }
-            println("This is the old AST : \n")
-            print(ast.prettyString() + "\n")
+//            println("This is the old AST : \n")
+//            print(ast.prettyString() + "\n")
             val newAST = deleteFromExp(ast, toDelete)
-            println("Old Ast equal to new AST?: " + ast.eql(newAST))
+//            println("Old Ast equal to new AST?: " + ast.eql(newAST))
             newAST
         }
 
@@ -246,7 +313,7 @@ object ScvRepl extends App:
         val newAST = deleteFromAST(exp, toDelete)
 
         //AST weer omvormen naar Scheme Code
-        println("This is the new AST: \n")
+//        println("This is the new AST: \n")
         newAST.prettyString()
 
     def repl(): Unit =
@@ -262,3 +329,4 @@ object ScvRepl extends App:
             repl()
 
     repl()
+
