@@ -87,7 +87,7 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
 
     /** A SMTLIB2 program that will be prepended to the actual constraints generated b our analyses */
     private val prelude: String = """
-     | ;; represent the Scheme/Racket types as Z3 types 
+     | ;; represent the Scheme/Racket types as Z3 types
      | ;; TODO: check how cons, vector, ptr, and procedures can be represented, maybe we will need some representation of the heap?
      |  (declare-datatypes ()
      |    ((V (VInteger (unwrap-VInteger Int))
@@ -112,19 +112,19 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
      |  (define-fun integer?/v ((n V)) V
      |     (VBool (is-VInteger n)))
      |
-     |  (define-fun number?/v ((n V)) V 
+     |  (define-fun number?/v ((n V)) V
      |    (VBool (or (is-VReal n) (is-VInteger n))))
      |
      |  (define-fun real?/v ((n V)) V
      |     ; where we expect a real, we also accept an integer
      |     (VBool (or (is-VInteger n) (is-VReal n))))
-     | 
-     |  (define-fun any?/v ((n V)) V 
+     |
+     |  (define-fun any?/v ((n V)) V
      |      (VBool true))
-      | (declare-fun string-length (V) V) 
-      | 
+      | (declare-fun string-length (V) V)
+      |
       | (define-fun +/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VInteger (+ (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VReal (+ (unwrap-VReal a) (unwrap-VInteger b)))
@@ -133,9 +133,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VReal (+ (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun -/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VInteger (- (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VReal (- (unwrap-VReal a) (unwrap-VInteger b)))
@@ -144,9 +144,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VReal (- (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun */v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VInteger (* (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VReal (* (unwrap-VReal a) (unwrap-VInteger b)))
@@ -155,9 +155,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VReal (* (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun //v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VInteger (/ (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VReal (/ (unwrap-VReal a) (unwrap-VInteger b)))
@@ -167,7 +167,7 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                       (VReal (/ (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
       |   (define-fun =/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VBool (= (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VBool (= (unwrap-VReal a) (unwrap-VInteger b)))
@@ -176,9 +176,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VBool (= (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun </v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VBool (< (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VBool (< (unwrap-VReal a) (unwrap-VInteger b)))
@@ -187,9 +187,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VBool (< (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun >/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VBool (> (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VBool (> (unwrap-VReal a) (unwrap-VInteger b)))
@@ -198,9 +198,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VBool (> (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun <=/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VBool (<= (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VBool (<= (unwrap-VReal a) (unwrap-VInteger b)))
@@ -209,9 +209,9 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VBool (<= (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      |   
+      |
       | (define-fun >=/v ((a V) (b V)) V
-      |   (ite (and (is-VInteger a) (is-VInteger b)) 
+      |   (ite (and (is-VInteger a) (is-VInteger b))
       |        (VBool (>= (unwrap-VInteger a) (unwrap-VInteger b)))
       |        (ite (and (is-VReal a) (is-VInteger b))
       |             (VBool (>= (unwrap-VReal a) (unwrap-VInteger b)))
@@ -220,7 +220,7 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
       |                  (ite (and (is-VReal a) (is-VReal b))
       |                       (VBool (>= (unwrap-VReal a) (unwrap-VReal b)))
       |                       VError)))))
-      | 
+      |
      |
      | (define-fun not/v ((a V)) V
      |   (ite (is-VBool a) (VBool (not (unwrap-VBool a))) VError))
@@ -244,10 +244,25 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
             translateAssertion(assertion)
         case Conjunction(formulas)       => if formulas.size == 0 then "" else s"(and ${formulas.map(translate(vars)).mkString(" ")})"
         case Disjunction(formulas)       => s"(or ${formulas.map(translate(vars)).mkString(" ")})"
-        case Implication(antecedent, consequent) => s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})" // (Mehdi)
+        case Implication(antecedent, consequent) =>
+            val allVars = (antecedent.variables ++ consequent.variables).map(variable => s"($variable V)").mkString("(", " ", ")")
+            println("these are the vars: "+ allVars)
+            s"(forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}))" // (Mehdi)
+
+        case Implication(antecedent, consequent) =>
+            val antVars = antecedent.variables
+            val conVars = consequent.variables
+            val answ = if (antVars.nonEmpty || conVars.nonEmpty) then
+                val allVars = (antVars ++ conVars).map(variable => s"($variable V)").mkString("(", " ", ")")
+                s"forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
+            else {
+                s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
+            }
+            println("these are the vars: " + answ)
+            answ
+
         case Assertion(_) | EmptyFormula => "true"
 
-  //case Implication(antecedent, consequent)      => s"(=> ${translate(antecedent)} ${translate(consequent)}"  //(Mehdi)
 
     def translateAssertion(e: SchemeExp): String = e match
         case SchemeVar(identifier)       => translateIdentifier(identifier)

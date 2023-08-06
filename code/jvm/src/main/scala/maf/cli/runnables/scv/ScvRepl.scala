@@ -44,10 +44,10 @@ object ScvRepl extends App:
             println("This is exp: " + schemeExp)
             for (formula <- formulas) {
                 var currentFormula = formula
-                println("this is the formula: " + currentFormula)
+//                println("this is the formula: " + currentFormula)
                 // loop over alle conditions in the formula
-//                println("this is formula: ")
-//                println(formula)
+                println("this is formula: ")
+                println(formula)
                 for (condition <- formula.splitConj) {
 //                    println("this is splitconj: " + formula.splitConj)
                     val newFormula = Conjunction(currentFormula.elements - condition)
