@@ -244,21 +244,22 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
             translateAssertion(assertion)
         case Conjunction(formulas)       => if formulas.size == 0 then "" else s"(and ${formulas.map(translate(vars)).mkString(" ")})"
         case Disjunction(formulas)       => s"(or ${formulas.map(translate(vars)).mkString(" ")})"
-        case Implication(antecedent, consequent) =>
-            val allVars = (antecedent.variables ++ consequent.variables).map(variable => s"($variable V)").mkString("(", " ", ")")
-            println("these are the vars: "+ allVars)
-            s"(forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}))" // (Mehdi)
+//        case Implication(antecedent, consequent) =>
+//            val allVars = (antecedent.variables ++ consequent.variables).map(variable => s"($variable V)").mkString("(", " ", ")")
+//            println("these are the vars: "+ allVars)
+//            s"(forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}))" // (Mehdi)
+
 
         case Implication(antecedent, consequent) =>
             val antVars = antecedent.variables
             val conVars = consequent.variables
             val answ = if (antVars.nonEmpty || conVars.nonEmpty) then
                 val allVars = (antVars ++ conVars).map(variable => s"($variable V)").mkString("(", " ", ")")
+                println("these are the vars: " + allVars)
                 s"forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
             else {
                 s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
             }
-            println("these are the vars: " + answ)
             answ
 
         case Assertion(_) | EmptyFormula => "true"
