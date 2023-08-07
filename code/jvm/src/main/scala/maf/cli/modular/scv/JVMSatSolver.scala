@@ -249,14 +249,13 @@ class JVMSatSolver[V](reporter: ScvReporter)(using SchemeLattice[V, Address]) ex
 //            println("these are the vars: "+ allVars)
 //            s"(forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}))" // (Mehdi)
 
-
         case Implication(antecedent, consequent) =>
             val antVars = antecedent.variables
             val conVars = consequent.variables
             val answ = if (antVars.nonEmpty || conVars.nonEmpty) then
                 val allVars = (antVars ++ conVars).map(variable => s"($variable V)").mkString("(", " ", ")")
-                println("these are the vars: " + allVars)
-                s"forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
+//                println("these are the vars: " + allVars)
+                s"(forall $allVars (=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)}))"
             else {
                 s"(=> ${translate(vars)(antecedent)} ${translate(vars)(consequent)})"
             }
