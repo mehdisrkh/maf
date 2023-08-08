@@ -80,7 +80,6 @@ object ScvRepl extends App:
         println("This is toDelete before filtering: " + toDelete1)
 
         //remove duplicates
-
         for ((schemeExp1, conditions) <- toDelete1){
             val cleanFormula = conditions.distinct
             toDelete1 = toDelete1.updated(schemeExp1, cleanFormula)
@@ -121,83 +120,39 @@ object ScvRepl extends App:
         var toDelete  = toDelete1.map {
             case (schemeExp, formulas) => schemeExp -> formulas.map {
                 case Assertion(exp) =>
-//                    println("this is an assertion:" + exp)
                     exp
                 case other => ???
             }
         }
 
         //In eender welke padconditie nagaan of de opposit van wat er in toDelete staat ook bestaat
-        for ((schemeExp, formulas) <- analysis.pathConditions) {
+
+        for ((schemeExp1, formulas) <- analysis.pathConditions) {
             for (formula <- formulas) {
                 val conjuncts = formula.splitConj
-                val conditionsToDelete = toDelete.getOrElse(schemeExp, List.empty)
-//                println("this is formula: " + conjuncts)
-//                println(" for schemeEXP: " + schemeExp + "This is the pc: " + conjuncts)
-                toDelete = toDelete.updated(schemeExp, conditionsToDelete.filterNot {
-                    case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
-//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
-//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
-                        conjuncts.exists {
-                            case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
-//                                println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2))
-//                                println(conjuncts.exists {
-//                                    case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
-//                                        idn2 == idn4
-//                                    case _ => false
-//                                })
-                                idn2 == idn4
-                            case _ => false
-                        }
-                    case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
-//                        println("This is the cond: " + SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))
-//                        println(conjuncts.contains(Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2))))
-                        conjuncts.exists {
-                            case Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)) =>
-                                idn2 == idn4
-                            case _ => false
-                        }
-                    case _ => false
-                })
+                for ((schemeExp2, conditions) <- toDelete){
+                    val conditionsToDelete = conditions.filterNot({
+                        case SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2) =>
+                            conjuncts.exists {
+                                case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
+                                    idn2 == idn4
+                                case _ => false
+                            }
+                        case SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2) =>
+                            conjuncts.exists {
+                                case Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)) =>
+                                    idn2 == idn4
+                                case _ => false
+                            }
+                        case _ => false
+                    })
+                    toDelete = toDelete.updated(schemeExp2,conditionsToDelete)
+                }
             }
         }
 
         toDelete = toDelete.filterNot { case (_, formulas) => formulas.isEmpty }
         println("This is toDelete after opposites: " + toDelete)
-
-
-
-//        var toDeleteFinal: List[SchemeExp] = List.empty
-//
-//        toDelete.foreach {
-//            case (schemeExp, conditions) =>
-//                var thisSchemeExp = schemeExp
-//                var deleteBool = true
-//                for (condition <- conditions) {
-//                    println("This is the condition: " + condition)
-//                    for ((schemeExp1, formulas) <- analysis.pathConditions) {
-//                        if schemeExp != schemeExp1 then
-////                            println(schemeExp1)
-////                            println(formulas)
-//                            for (formula <- formulas) {
-//                                println(formula.splitConj.contains(Assertion(condition)))
-//                                if formula.splitConj.contains(Assertion(condition)) then
-//                                    if (toDelete.getOrElse(schemeExp1, List.empty).contains(condition)) then
-//                                        deleteBool = deleteBool
-//                                    else{
-//                                        deleteBool = false
-//                                        println(thisSchemeExp)
-//                                    }
-//                            }
-//                    }
-//                    if deleteBool then
-//                        toDeleteFinal = condition :: toDeleteFinal
-//                }
-//        }
-//
-//
-//        println("This is the toDelete: " + toDeleteFinal.distinct)
-
 
         def deleteFromAST(ast: SchemeExp, toDelete: Map[SchemeExp, List[SchemeExp]]): SchemeExp = {
 
