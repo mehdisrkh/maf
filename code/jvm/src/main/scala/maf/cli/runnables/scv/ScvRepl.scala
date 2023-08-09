@@ -33,8 +33,8 @@ object ScvRepl extends App:
         val solver = new JVMSatSolver[analysis.Value](analysis)(using analysis.lattice)
         var toDelete1: Map[SchemeExp, List[Formula]] = Map()
 
-//        println("this is the  PC: ")
-//        println(analysis.pathConditions)
+        println("this is the  PC: ")
+        println(analysis.pathConditions)
 
         // loop over all pathconditions in the map
         for ((schemeExp, formulas) <- analysis.pathConditions) {
@@ -95,14 +95,14 @@ object ScvRepl extends App:
                         case Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2)) =>
                             conditions2.exists {
                                 case Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)) =>
-                                    if idn2 == idn4 then println("This is true expr1: " + Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2)) + "  This is true expr2: " + Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)))
+//                                    if idn2 == idn4 then println("This is true expr1: " + Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn1)), expr, idn2)) + "  This is true expr2: " + Assertion(SchemeFuncall(SchemeVar(Identifier("true?", idn3)), expr1, idn4)))
                                     idn2 == idn4
                                 case _ => false
                             }
                         case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)) =>
                             conditions2.exists {
                                 case Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)) =>
-                                    if idn2 == idn4 then println("This is false expr1: " + Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)) + "  This is false expr2: " + Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)))
+//                                    if idn2 == idn4 then println("This is false expr1: " + Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn1)), expr, idn2)) + "  This is false expr2: " + Assertion(SchemeFuncall(SchemeVar(Identifier("false?", idn3)), expr1, idn4)))
                                     idn2 == idn4
                                 case _ => false
                             }
@@ -201,7 +201,7 @@ object ScvRepl extends App:
                     case SchemeFuncall(f, args, idn) =>
                         //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
                         //want ik hoef eigenlijk niet te weten wat de conditie is&
-                        var newCond = args.head
+                        var newCond: SchemeExp = SchemeValue(Value.Nil, NoCodeIdentity)
                         for ((schemeExp, conditions) <- toDelete) {
                             //                            if idn == schemeExp.idn then
                             //                                println("this is the exp: " + schemeExp)
@@ -220,30 +220,8 @@ object ScvRepl extends App:
                                 }
                             }
                         }
-                        val res: SchemeExp = if (newCond != args.head) then newCond else SchemeFuncall(f, args, idn)
+                        val res: SchemeExp = if newCond != SchemeValue(Value.Nil, NoCodeIdentity) then newCond else SchemeFuncall(f, args, idn)
                         res
-
-//                    case SchemeFuncall(f, args, idn) =>
-//                        //Ik check enkel of het true of false is ik ga niet na of het '> , <, =' is
-//                        //want ik hoef eigenlijk niet te weten wat de conditie is&
-//                        var newCond = args.head
-//                        for (cond <- toDelete) {
-//                            cond match {
-//                                case SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2) =>
-//                                    if (idn == idn2) then
-////                                        println("This is to be deleted: " + cond)
-////                                        println("This is the bool: " + bool)
-//                                        if (bool == "true?") then
-//                                            newCond = SchemeValue(Value.Boolean(true), NoCodeIdentity)
-////                                            println("This is te new one: " + newCond)
-//                                        else if (bool == "false?") then newCond = SchemeValue(Value.Boolean(false), NoCodeIdentity)
-//                                        else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
-//                                    else SchemeFuncall(SchemeVar(Identifier(bool, idn1)), _, idn2)
-//                                case _ => ???
-//                            }
-//                        }
-//                        val res: SchemeExp = if (newCond != args.head) then newCond else SchemeFuncall(f, args, idn)
-//                        res
 
                     case ContractSchemeContractOut(name, contract, idn) =>
                         ContractSchemeContractOut(name, deleteFromExp(contract, toDelete), idn)
